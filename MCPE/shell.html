@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en-us">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
+    <title>Minecraft</title>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: none;
+            /* Prevent browser scroll/zoom on touch */
+        }
+
+        canvas.emscripten {
+            /* Fills the whole window – the C++ renderer now sets its
+               resolution from window.innerWidth/Height dynamically */
+            display: block;
+            outline: none;
+            width: 100vw;
+            height: 100vh;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+
+    <script type='text/javascript'>
+        var Module = {
+            canvas: (function () { return document.getElementById('canvas'); })()
+        };
+
+        // ─── Multi-touch → Mouse event translation ──────────────────────────────────
+        // Emscripten's SDL layer listens for MouseEvents on the canvas.
+        // We synthesise those events from Touch data so that:
+        //   • Every touch point generates correct mousemove / mousedown / mouseup.
+        //   • Coordinates are scaled from CSS pixels to canvas logical pixels
+        //     (accounting for letterboxing via getBoundingClientRect).
+        //   • All touches are tracked independently so multi-touch doesn't break.
+        // ────────────────────────────────────────────────────────────────────────────
+
+        (function () {
+            var canvas = document.getElementById('canvas');
+
+            // Handle Native Mouse Clicks to lock pointer only for REAL mice
+            canvas.addEventListener('mousedown', function (e) {
+                // e.isTrusted ensures this was a physical mouse click
+                if (e.isTrusted && !document.pointerLockElement && !window.mcMenuOpen) {
+                    canvas.requestPointerLock();
+                }
+            });
+
+            // Prevent default touch behaviors on the canvas (like scrolling, double-tap zoom)
+            // This also prevents the browser from synthesizing native 'mousedown' events from touches
+            canvas.addEventListener('touchstart', function (e) {
+                e.preventDefault();
+            }, { passive: false });
+
+            // Block document-level default touch behaviours (scroll / zoom),
+            // but only for non-input elements (the existing rule).
+            document.addEventListener('touchstart', function (e) {
+                var t = e.target.tagName;
+                if (t !== 'INPUT' && t !== 'TEXTAREA' && t !== 'BUTTON' && t !== 'SELECT' && t !== 'OPTION') {
+                    e.preventDefault();
+                }
+            }, { passive: false });
+        })();
+    </script>
+    <script type='text/javascript'>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                    }, err => {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+            });
+        }
+    </script>
+    {{{ SCRIPT }}}
+</body>
+
+</html>
